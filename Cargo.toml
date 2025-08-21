@@ -51,10 +51,13 @@ either = "1.15.0"
 linked-hash-map = "0.5.6"
 tokio = { version = "1.47.1", features = ["rt", "macros"] }
 wgpu = "25"
-clipboard-win = "5.4.1"
 lazy_static.workspace = true
 bytemuck = "1.23.2"
 rayon.workspace = true
+
+[target.'cfg(target_os = "windows")'.dependencies]
+clipboard-win = "5.4.1"
+
 
 [profile.dev]
 opt-level = 3

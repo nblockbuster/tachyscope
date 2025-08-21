@@ -33,6 +33,7 @@ impl ResponseExt for egui::Response {
         api_hash: u32,
     ) -> Option<egui::InnerResponse<()>> {
         self.context_menu(|ui| {
+            #[cfg(target_os = "windows")]
             if ui.selectable_label(false, "📷 Copy texture").clicked() {
                 for (tag, icon_type) in &tags {
                     match Texture::load(&texture_cache.render_state, *tag) {
