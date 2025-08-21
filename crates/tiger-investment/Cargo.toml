@@ -1,0 +1,20 @@
+[package]
+name = "tiger-investment"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rustc-hash.workspace = true
+lazy_static.workspace = true
+parking_lot = "0.12"
+anyhow.workspace = true
+tiger-pkg.workspace = true
+tiger-parse.workspace = true
+tiger-tag.path = "../tiger-tag"
+tiger-text.path = "../tiger-text"
+strum.workspace = true
+glam = "0.30"
+tracing.workspace = true
+crossbeam.workspace = true
+rayon.workspace = true
+eframe.workspace = true

@@ -1,0 +1,60 @@
+[workspace]
+members = ["crates/tiger-investment", "crates/tiger-tag", "crates/tiger-text"]
+
+[package]
+name = "tachyscope"
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+anyhow = "1.0.98"
+log = "0.4.27"
+tiger-pkg = { version = "0.18.7", features = ["global_manager_instance"] }
+tiger-parse = { path = "I:/Source/tiger-parse", version = "0.6.0", features = [
+    "tiger_pkg",
+] }
+strum = { version = "0.27", features = ["derive"] }
+rustc-hash = "2.1"
+tracing = "0.1.41"
+crossbeam = "0.8.4"
+rayon = "1.10"
+eframe = { version = "0.32.0", features = [
+    "default_fonts",
+    "wayland",
+    "x11",
+    "persistence",
+    "wgpu",
+] }
+lazy_static = "1"
+
+[dependencies]
+eframe.workspace = true
+egui = "0.32.0"
+strum.workspace = true
+clap = { version = "4.5.43", features = ["derive", "env"] }
+env_logger = "0.11.8"
+tiger-pkg.workspace = true
+log.workspace = true
+anyhow.workspace = true
+game-detector = "0.1.5"
+tiger-text.path = "crates/tiger-text"
+tiger-parse.workspace = true
+tiger-investment.path = "crates/tiger-investment"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing-tracy = "0.11.4"
+tracing.workspace = true
+crossbeam.workspace = true
+image = "0.25.6"
+rustc-hash.workspace = true
+poll-promise = { version = "0.3.0", features = ["tokio"] }
+either = "1.15.0"
+linked-hash-map = "0.5.6"
+tokio = { version = "1.47.1", features = ["rt", "macros"] }
+wgpu = "25"
+clipboard-win = "5.4.1"
+lazy_static.workspace = true
+bytemuck = "1.23.2"
+rayon.workspace = true
+
+[profile.dev]
+opt-level = 3

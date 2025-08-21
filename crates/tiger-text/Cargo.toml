@@ -1,0 +1,12 @@
+[package]
+name = "tiger-text"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rustc-hash.workspace = true
+log.workspace = true
+strum.workspace = true
+tiger-parse.workspace = true
+tiger-pkg.workspace = true
+anyhow.workspace = true
