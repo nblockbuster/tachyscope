@@ -4105,6 +4105,7 @@ dependencies = [
 [[package]]
 name = "tiger-parse"
 version = "0.6.0"
+source = "git+https://github.com/v4nguard/tiger-parse.git#24733b7be08b3b7da010a53f421ce00bcd46d621"
 dependencies = [
  "disqualified",
  "glam 0.29.3",
@@ -4117,6 +4118,7 @@ dependencies = [
 [[package]]
 name = "tiger-parse-derive"
 version = "0.1.0"
+source = "git+https://github.com/v4nguard/tiger-parse.git#24733b7be08b3b7da010a53f421ce00bcd46d621"
 dependencies = [
  "darling",
  "proc-macro2",

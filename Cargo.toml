@@ -10,7 +10,7 @@ edition = "2024"
 anyhow = "1.0.98"
 log = "0.4.27"
 tiger-pkg = { version = "0.18.7", features = ["global_manager_instance"] }
-tiger-parse = { path = "I:/Source/tiger-parse", version = "0.6.0", features = [
+tiger-parse = { git = "https://github.com/v4nguard/tiger-parse.git", version = "0.6", features = [
     "tiger_pkg",
 ] }
 strum = { version = "0.27", features = ["derive"] }
