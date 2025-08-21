@@ -4,6 +4,7 @@ use std::{
 };
 
 use egui::{Align2, CollapsingHeader, Color32, CornerRadius, RichText, Stroke, Vec2};
+use log::info;
 use strum::IntoEnumIterator;
 use tiger_investment::{
     InvestmentData,
@@ -135,7 +136,12 @@ impl eframe::App for TachyscopeApp {
                     .selected_text(self.language.to_string())
                     .show_ui(ui, |ui| {
                         for lang in Language::iter() {
-                            ui.selectable_value(&mut self.language, lang, lang.to_string());
+                            if ui
+                                .selectable_value(&mut self.language, lang, lang.to_string())
+                                .changed()
+                            {
+                                investment_manager().strings().clear_cache();
+                            }
                         }
                     });
             });

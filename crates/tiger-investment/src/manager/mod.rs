@@ -167,6 +167,10 @@ impl InvestmentManager {
 }
 
 impl StringManager {
+    pub fn clear_cache(&self) {
+        self.string_cache.write().clear();
+    }
+
     pub fn get_indexed_string(&self, language: Language, index: u32, hash: u32) -> Option<String> {
         if let Some(cached) = self.string_cache.read().get(&(index, hash)) {
             return Some(cached.to_owned());
