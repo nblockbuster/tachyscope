@@ -14,6 +14,7 @@ pub struct InventoryItem {
     pub data: SInventoryItem,
     pub display: SInventoryItemDisplay,
 }
+
 impl InventoryItem {
     pub fn new(data: SInventoryItem, display: SInventoryItemDisplay) -> Self {
         Self { data, display }

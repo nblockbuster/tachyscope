@@ -7,6 +7,18 @@ pub mod interactables;
 pub mod skulls;
 pub mod types;
 
+#[derive(Clone)]
+pub struct Activity {
+    pub data: SActivityData,
+    pub display: SActivityDisplayData,
+}
+
+impl Activity {
+    pub fn new(data: SActivityData, display: SActivityDisplayData) -> Self {
+        Self { data, display }
+    }
+}
+
 #[tiger_tag(id = 0x8080718D, size = 0x18)]
 pub struct SActivityList {
     pub file_size: u64,

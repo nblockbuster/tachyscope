@@ -79,13 +79,13 @@ impl IndexedString {
         self.0 != 0xFF_FF || self.1 == FNV1_PRIME
     }
 
-    pub fn get(&self, language: Language) -> Option<String> {
+    pub fn get(&self) -> Option<String> {
         if !self.valid() {
             return None;
         }
         investment_manager()
             .strings()
-            .get_indexed_string(language, self.0, self.1)
+            .get_indexed_string(self.0, self.1)
     }
 }
 // TODO: implement display and debug (move lang to investment manager?)

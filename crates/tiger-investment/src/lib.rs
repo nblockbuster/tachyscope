@@ -15,7 +15,8 @@ use tiger_text::Language;
 use crate::{
     data::{
         activity::{
-            SActivityData, SActivityDisplayData, graph::SActivityGraph, types::SActivityType,
+            Activity, SActivityData, SActivityDisplayData, graph::SActivityGraph,
+            types::SActivityType,
         },
         item::{InventoryItem, SInventoryItem, SInventoryItemDisplay},
     },
@@ -29,29 +30,25 @@ pub mod manager;
 #[derive(Clone, strum::IntoStaticStr)]
 pub enum InvestmentData {
     Achievement,
-    Activity(Box<SActivityData>, Box<SActivityDisplayData>),
+    Activity(Box<Activity>), //(Box<SActivityData>, Box<SActivityDisplayData>),
     ActivityGraph(Box<SActivityGraph>),
     ActivityType(Box<SActivityType>),
     InventoryItem(Box<InventoryItem>),
 }
 
 impl InvestmentData {
-    pub fn name(&self, language: Language) -> String {
+    pub fn name(&self) -> String {
         match self {
-            Self::Activity(_, display) => display
-                .display_properties
-                .name
-                .get(language)
-                .unwrap_or_default(),
-            Self::InventoryItem(i) => i.display.name.get(language).unwrap_or_default(),
+            Self::Activity(a) => a.display.display_properties.name.get().unwrap_or_default(),
+            Self::InventoryItem(i) => i.display.name.get().unwrap_or_default(),
             // TODO: default missing name
             _ => String::new(),
         }
     }
 
-    pub fn itype(&self, language: Language) -> Option<String> {
+    pub fn itype(&self) -> Option<String> {
         match self {
-            Self::InventoryItem(i) => Some(i.display.item_type.get(language).unwrap_or_default()),
+            Self::InventoryItem(i) => Some(i.display.item_type.get().unwrap_or_default()),
             // TODO: default missing name
             _ => None,
         }
@@ -59,7 +56,7 @@ impl InvestmentData {
 
     pub fn hash(&self) -> u32 {
         match self {
-            Self::Activity(data, _) => data.hash,
+            Self::Activity(a) => a.data.hash,
             Self::InventoryItem(i) => i.data.hash,
             _ => 0,
         }

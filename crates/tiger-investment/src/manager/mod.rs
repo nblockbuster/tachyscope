@@ -11,7 +11,9 @@ use tiger_text::{Language, LocalizedStrings};
 use crate::{
     IndexableHashMap, InvestmentData,
     data::{
-        activity::{SActivityData, SActivityDisplayData, SActivityDisplayList, SActivityList},
+        activity::{
+            Activity, SActivityData, SActivityDisplayData, SActivityDisplayList, SActivityList,
+        },
         image::{SInvestmentIcon, SInvestmentIcons},
         item::{InventoryItem, SInventoryItem, SInventoryItemDisplayList, SItemList},
         text::SIndexedLocalizedStrings,
@@ -30,6 +32,7 @@ pub struct ActivityManager {
 }
 
 pub struct StringManager {
+    language: RwLock<Language>,
     string_cache: RwLock<FxHashMap<(u32, u32), String>>,
     indexed_strings: SIndexedLocalizedStrings,
 }
@@ -64,10 +67,10 @@ impl InvestmentManager {
             let a_disp = &activity_display_list.activities[i];
             activities.insert(
                 a_data.hash,
-                InvestmentData::Activity(
-                    Box::new(a_data.activity.0.clone()),
-                    Box::new(a_disp.activity.0.clone()),
-                ),
+                InvestmentData::Activity(Box::new(Activity::new(
+                    a_data.activity.0.clone(),
+                    a_disp.activity.0.clone(),
+                ))),
             );
         }
 
@@ -97,6 +100,7 @@ impl InvestmentManager {
 
         Ok(Self {
             strings: Arc::new(StringManager {
+                language: RwLock::new(Language::English),
                 string_cache: RwLock::new(FxHashMap::default()),
                 indexed_strings: package_manager().read_tag_struct(
                     package_manager().get_all_by_reference(SIndexedLocalizedStrings::ID.unwrap())
@@ -152,26 +156,35 @@ impl InvestmentManager {
     pub fn search_by_name(
         &self,
         search_channel: Arc<crossbeam::channel::Sender<InvestmentData>>,
-        language: Language,
         name: String,
     ) {
         let act = self.activities.clone();
         let act_channel = search_channel.clone();
         let name1 = name.to_lowercase().clone();
-        std::thread::spawn(move || act.search_by_name(act_channel, language, name1));
+        std::thread::spawn(move || act.search_by_name(act_channel, name1));
         let item_channel = search_channel.clone();
         let items = self.items.clone();
         let name1 = name.to_lowercase().clone();
-        std::thread::spawn(move || items.search_by_name(item_channel, language, name1));
+        std::thread::spawn(move || items.search_by_name(item_channel, name1));
     }
 }
 
 impl StringManager {
-    pub fn clear_cache(&self) {
+    /// Sets the language to `new_lang` and clears the string cache to update for the new language
+    pub fn set_lang(&self, new_lang: Language) {
+        *self.language.write() = new_lang;
+        self.clear_cache();
+    }
+
+    pub fn lang(&self) -> Language {
+        self.language.read().clone()
+    }
+
+    fn clear_cache(&self) {
         self.string_cache.write().clear();
     }
 
-    pub fn get_indexed_string(&self, language: Language, index: u32, hash: u32) -> Option<String> {
+    pub fn get_indexed_string(&self, index: u32, hash: u32) -> Option<String> {
         if let Some(cached) = self.string_cache.read().get(&(index, hash)) {
             return Some(cached.to_owned());
         }
@@ -180,7 +193,7 @@ impl StringManager {
         let Ok(loc) = LocalizedStrings::load(strings_data.localized_tag) else {
             return None;
         };
-        let string = loc.get(&language, hash)?;
+        let string = loc.get(&self.language.read(), hash)?;
         self.string_cache
             .write()
             .insert((index, hash), string.to_owned());
@@ -194,7 +207,6 @@ impl ActivityManager {
     pub fn search_by_name(
         &self,
         channel: Arc<crossbeam::channel::Sender<InvestmentData>>,
-        language: Language,
         name: String,
     ) {
         if self
@@ -202,15 +214,14 @@ impl ActivityManager {
             .values()
             .par_iter()
             .try_for_each(move |act| -> anyhow::Result<()> {
-                if let InvestmentData::Activity(data, display) = act {
-                    let act_name = display.display_properties.name.get(language);
+                if let InvestmentData::Activity(a) = act {
+                    let act_name = a.display.display_properties.name.get();
                     if act_name
                         .clone()
                         .is_some_and(|n| n.to_lowercase().contains(&name))
                         || act_name.is_none() && name.is_empty()
                     {
-                        channel
-                            .try_send(InvestmentData::Activity(data.clone(), display.clone()))?;
+                        channel.try_send(InvestmentData::Activity(a.clone()))?;
                     }
                 }
                 Ok(())
@@ -240,7 +251,6 @@ impl ItemManager {
     pub fn search_by_name(
         &self,
         channel: Arc<crossbeam::channel::Sender<InvestmentData>>,
-        language: Language,
         name: String,
     ) {
         if self
@@ -249,7 +259,7 @@ impl ItemManager {
             .par_iter()
             .try_for_each(move |item| -> anyhow::Result<()> {
                 if let InvestmentData::InventoryItem(i) = item {
-                    let act_name = i.display.name.get(language);
+                    let act_name = i.display.name.get();
                     if act_name
                         .clone()
                         .is_some_and(|n| n.to_lowercase().contains(&name))

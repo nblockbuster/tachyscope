@@ -16,7 +16,10 @@ use tiger_investment::{
 };
 use tiger_text::Language;
 
-use crate::gui::texture::{cache::TextureCache, icon_container};
+use crate::gui::{
+    common::DisplayUi,
+    texture::{cache::TextureCache, icon_container},
+};
 
 mod common;
 mod texture;
@@ -140,7 +143,7 @@ impl eframe::App for TachyscopeApp {
                                 .selectable_value(&mut self.language, lang, lang.to_string())
                                 .changed()
                             {
-                                investment_manager().strings().clear_cache();
+                                investment_manager().strings().set_lang(self.language);
                             }
                         }
                     });
@@ -185,11 +188,10 @@ impl eframe::App for TachyscopeApp {
                     if let Ok(hash) = self.search_input.parse::<u32>() {
                         self.results = investment_manager().search_by_hash(hash);
                     } else {
-                        let lang = self.language;
                         let input = self.search_input.clone();
                         let sender = self.search_send.clone();
                         std::thread::spawn(move || {
-                            investment_manager().search_by_name(sender, lang, input)
+                            investment_manager().search_by_name(sender, input)
                         });
                     };
                 }
@@ -219,10 +221,10 @@ impl eframe::App for TachyscopeApp {
                             .corner_radius(egui::CornerRadius::same(2))
                             .stroke(Stroke::new(2.0, Color32::PLACEHOLDER))
                             .show(ui, |ui| {
-                                ui.label(result.name(self.language));
+                                ui.label(result.name());
                                 let enum_type: &'static str = result.into();
                                 let mut typetext = String::from(enum_type);
-                                if let Some(itype) = result.itype(self.language) {
+                                if let Some(itype) = result.itype() {
                                     typetext += &format!(": {itype}");
                                 }
                                 ui.label(RichText::new(typetext).italics());
@@ -251,228 +253,12 @@ impl eframe::App for TachyscopeApp {
                             self.to_deselect.push(i);
                         }
                         // TODO: show icon here
-                        ui.label(selected.name(self.language));
+                        ui.label(selected.name());
                         let enum_type: &'static str = selected.into();
                         ui.label(enum_type);
                         ui.label(selected.hash().to_string());
                     });
-                    match selected {
-                        InvestmentData::Activity(data, display) => {
-                            ui.collapsing(RichText::new("Display Properties").size(15.0), |ui| {
-                                ui.label(format!(
-                                    "name: \"{}\"",
-                                    display
-                                        .display_properties
-                                        .name
-                                        .get(self.language)
-                                        .unwrap_or_default()
-                                ));
-                                ui.label(format!(
-                                    "description: \"{}\"",
-                                    display
-                                        .display_properties
-                                        .description
-                                        .get(self.language)
-                                        .unwrap_or_default()
-                                ));
-                            });
-                            ui.collapsing(
-                                RichText::new("Selection Display Properties").size(15.0),
-                                |ui| {
-                                    ui.label(format!(
-                                        "name: \"{}\"",
-                                        display
-                                            .selection_screen_display_properties
-                                            .name
-                                            .get(self.language)
-                                            .unwrap_or_default()
-                                    ));
-                                    ui.label(format!(
-                                        "description: \"{}\"",
-                                        display
-                                            .selection_screen_display_properties
-                                            .description
-                                            .get(self.language)
-                                            .unwrap_or_default()
-                                    ));
-                                },
-                            );
-                            ui.collapsing(RichText::new("Modifiers").size(15.0), |ui| {
-                                for (i, modifier) in display.modifiers.iter().enumerate() {
-                                    ui.collapsing(format!("Modifier {i}"), |ui| {
-                                        ui.label(format!(
-                                            "name: \"{}\"",
-                                            modifier
-                                                .data
-                                                .name
-                                                .get(self.language)
-                                                .unwrap_or_default()
-                                        ));
-                                        ui.label(format!(
-                                            "description: \"{}\"",
-                                            modifier
-                                                .data
-                                                .description
-                                                .get(self.language)
-                                                .unwrap_or_default()
-                                        ));
-                                    });
-                                }
-                            });
-
-                            ui.collapsing(RichText::new("Insertion Points").size(15.0), |ui| {
-                                for (i, phase) in data.insertion_points.0.phases.iter().enumerate()
-                                {
-                                    ui.collapsing(format!("Insertion Point {i}"), |ui| {
-                                        ui.label(format!("phase: {}", phase.phase_hash));
-                                        ui.label(format!("unlock_index: {}", phase.unlock_index));
-                                    });
-                                }
-                            });
-                        }
-                        InvestmentData::InventoryItem(i) => {
-                            ui.collapsing(RichText::new("Display Properties").size(15.0), |ui| {
-                                let Some(icon) = i.icon() else {
-                                    return;
-                                };
-
-                                let mut textures = Vec::new();
-                                textures.append(
-                                    &mut icon
-                                        .get_background_textures(Some(ColorblindMode::None))
-                                        .iter()
-                                        .map(|x| (*x, IconContainerType::Background))
-                                        .collect::<Vec<_>>(),
-                                );
-                                textures.append(
-                                    &mut icon
-                                        .get_primary_textures()
-                                        .iter()
-                                        .map(|x| (*x, IconContainerType::Primary))
-                                        .collect::<Vec<_>>(),
-                                );
-                                //     (icon.get_primary_textures(), IconContainerType::Primary),
-                                // ]
-                                // .into_iter()
-                                // .flatten()
-                                // .collect::<Vec<_>>();
-
-                                icon_container(
-                                    ui,
-                                    Color32::from_rgba_unmultiplied(
-                                        (icon.data.background_color[0] * 255.0) as u8,
-                                        (icon.data.background_color[1] * 255.0) as u8,
-                                        (icon.data.background_color[2] * 255.0) as u8,
-                                        (icon.data.background_color[3] * 255.0) as u8,
-                                    ),
-                                    textures.clone(),
-                                    self.texture_cache.clone(),
-                                    selected.hash(),
-                                );
-                                ui.collapsing("Icon Layers", |ui| {
-                                    textures.append(
-                                        &mut icon
-                                            .get_overlay_textures()
-                                            .iter()
-                                            .map(|x| (*x, IconContainerType::Overlay))
-                                            .collect::<Vec<_>>(),
-                                    );
-                                    for t in &textures {
-                                        icon_container(
-                                            ui,
-                                            Color32::BLACK,
-                                            vec![*t],
-                                            self.texture_cache.clone(),
-                                            selected.hash(),
-                                        );
-                                    }
-                                });
-                                ui.label(format!(
-                                    "name: \"{}\"",
-                                    i.display.name.get(self.language).unwrap_or_default()
-                                ));
-                                ui.label(format!(
-                                    "display_source: \"{}\"",
-                                    i.display
-                                        .display_source
-                                        .get(self.language)
-                                        .unwrap_or_default()
-                                ));
-                                ui.label(format!(
-                                    "type: \"{}\"",
-                                    i.display.item_type.get(self.language).unwrap_or_default()
-                                ));
-                                ui.label(format!(
-                                    "toast: \"{}\"",
-                                    i.display.toast.get(self.language).unwrap_or_default()
-                                ));
-                                ui.label(format!(
-                                    "flavor: \"{}\"",
-                                    i.display.flavor.get(self.language).unwrap_or_default()
-                                ));
-                            });
-                            if let Some(sockets) = &i.data.sockets.0 {
-                                ui.collapsing(RichText::new("Sockets").size(15.0), |ui| {
-                                    for (i, socket) in sockets.data.iter().enumerate() {
-                                        ui.collapsing(format!("Socket {i}"), |ui| {
-                                            ui.label(format!(
-                                                "socket_index: {}",
-                                                socket.socket_index
-                                            ));
-                                            ui.label(format!(
-                                                "single_initial_item_index: {}",
-                                                socket.single_initial_item_index
-                                            ));
-                                            ui.label(format!(
-                                                "reusable_plugset_index: {}",
-                                                socket.reusable_plugset_index
-                                            ));
-                                            ui.label(format!(
-                                                "reusable_plugset_index_2: {}",
-                                                socket.reusable_plugset_index_2
-                                            ));
-                                            CollapsingHeader::new("plug_items")
-                                                .id_salt(
-                                                    socket.socket_index
-                                                        + socket.reusable_plugset_index,
-                                                )
-                                                .show(ui, |ui| {
-                                                    for plug in &socket.plug_items {
-                                                        ui.label(format!(
-                                                            "plug_index: {}",
-                                                            plug.plug_index
-                                                        ));
-                                                    }
-                                                });
-                                        });
-                                    }
-                                });
-                            }
-                            if let Some(stats_perks) = &i.data.stats_perks.0 {
-                                ui.collapsing(RichText::new("Stats").size(15.0), |ui| {
-                                    for stat in &stats_perks.stats {
-                                        ui.collapsing(
-                                            format!("Stat Type {}", stat.stat_type),
-                                            |ui| {
-                                                ui.label(format!("type: {}", stat.stat_type));
-                                                ui.label(format!("value: {}", stat.stat_value));
-                                            },
-                                        );
-                                    }
-                                });
-
-                                ui.collapsing(RichText::new("Perks").size(15.0), |ui| {
-                                    for perk in &stats_perks.perks {
-                                        ui.label(format!(
-                                            "sandbox_perk_index: {}",
-                                            perk.sandbox_perk_index
-                                        ));
-                                    }
-                                });
-                            }
-                        }
-                        _ => {}
-                    }
+                    selected.show(self.texture_cache.clone(), selected.hash(), ui);
                 });
             });
         }
