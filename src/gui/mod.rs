@@ -210,37 +210,43 @@ impl eframe::App for TachyscopeApp {
                     }
                 });
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    for (i, result) in self.results.iter().enumerate() {
-                        if i > 500 {
-                            ui.label("Only 500 results can be shown at a time.");
-                            break;
-                        }
-                        let frame = egui::containers::Frame::new()
-                            .outer_margin(egui::Margin::same(8))
-                            .inner_margin(egui::Margin::same(4))
-                            .corner_radius(egui::CornerRadius::same(2))
-                            .stroke(Stroke::new(2.0, Color32::PLACEHOLDER))
-                            .show(ui, |ui| {
-                                ui.label(result.name());
-                                let enum_type: &'static str = result.into();
-                                let mut typetext = String::from(enum_type);
-                                if let Some(itype) = result.itype() {
-                                    typetext += &format!(": {itype}");
-                                }
-                                ui.label(RichText::new(typetext).italics());
-                                ui.label(result.hash().to_string())
-                            });
-                        if frame.response.contains_pointer() {
-                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-                        }
-                        if frame.response.interact(egui::Sense::click()).clicked() {
-                            if self.selected.iter().any(|x| x.hash() == result.hash()) {
-                                self.selected.retain(|x| x.hash() != x.hash());
-                            } else {
-                                self.selected.push(result.clone());
+                    egui::Grid::new("grid_results").show(ui, |ui| {
+                        let max_cols = (ui.available_width() / 20.0).floor() as usize - 2;
+                        for (i, result) in self.results.iter().enumerate() {
+                            if i > 500 {
+                                ui.label("Only 500 results can be shown at a time.");
+                                break;
                             }
-                        };
-                    }
+                            let frame = egui::containers::Frame::new()
+                                .outer_margin(egui::Margin::same(8))
+                                .inner_margin(egui::Margin::same(4))
+                                .corner_radius(egui::CornerRadius::same(2))
+                                .stroke(Stroke::new(2.0, Color32::PLACEHOLDER))
+                                .show(ui, |ui| {
+                                    ui.label(result.name());
+                                    let enum_type: &'static str = result.into();
+                                    let mut typetext = String::from(enum_type);
+                                    if let Some(itype) = result.itype() {
+                                        typetext += &format!(": {itype}");
+                                    }
+                                    ui.label(RichText::new(typetext).italics());
+                                    ui.label(result.hash().to_string())
+                                });
+                            if frame.response.contains_pointer() {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                            }
+                            if frame.response.interact(egui::Sense::click()).clicked() {
+                                if self.selected.iter().any(|x| x.hash() == result.hash()) {
+                                    self.selected.retain(|x| x.hash() != x.hash());
+                                } else {
+                                    self.selected.push(result.clone());
+                                }
+                            };
+                            if (i + 1) % max_cols == 0 {
+                                ui.end_row();
+                            }
+                        }
+                    });
                 });
             });
         });
