@@ -1,9 +1,11 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use crossbeam::channel::TrySendError;
+use dashmap::DashMap;
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxHashMap;
+use strum::IntoEnumIterator;
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::package_manager;
 use tiger_text::{Language, LocalizedStrings};
@@ -33,7 +35,7 @@ pub struct ActivityManager {
 
 pub struct StringManager {
     language: RwLock<Language>,
-    string_cache: RwLock<FxHashMap<(u32, u32), String>>,
+    string_cache: DashMap<(u32, u32), String>,
     indexed_strings: SIndexedLocalizedStrings,
 }
 
@@ -99,15 +101,7 @@ impl InvestmentManager {
         )?;
 
         Ok(Self {
-            strings: Arc::new(StringManager {
-                language: RwLock::new(Language::English),
-                string_cache: RwLock::new(FxHashMap::default()),
-                indexed_strings: package_manager().read_tag_struct(
-                    package_manager().get_all_by_reference(SIndexedLocalizedStrings::ID.unwrap())
-                        [0]
-                    .0,
-                )?,
-            }),
+            strings: Arc::new(StringManager::new()?),
             activities: Arc::new(ActivityManager { activities }),
             items: Arc::new(ItemManager { items: item_map }),
 
@@ -170,33 +164,70 @@ impl InvestmentManager {
 }
 
 impl StringManager {
-    /// Sets the language to `new_lang` and clears the string cache to update for the new language
-    pub fn set_lang(&self, new_lang: Language) {
+    #[tracing::instrument]
+    pub fn new() -> anyhow::Result<Self> {
+        let indexed_strings: SIndexedLocalizedStrings = package_manager().read_tag_struct(
+            package_manager().get_all_by_reference(SIndexedLocalizedStrings::ID.unwrap())[0].0,
+        )?;
+        let s = Self {
+            language: RwLock::new(Language::English),
+            string_cache: DashMap::new(),
+            indexed_strings,
+        };
+
+        s.create_cache()?;
+
+        Ok(s)
+    }
+
+    /// Sets the language to `new_lang`
+    pub fn set_lang(&self, new_lang: Language) -> anyhow::Result<()> {
         *self.language.write() = new_lang;
-        self.clear_cache();
+        self.create_cache()?;
+        Ok(())
     }
 
     pub fn lang(&self) -> Language {
-        self.language.read().clone()
+        *self.language.read()
     }
 
-    fn clear_cache(&self) {
-        self.string_cache.write().clear();
+    #[tracing::instrument(skip(self))]
+    fn create_cache(&self) -> anyhow::Result<()> {
+        self.string_cache.clear();
+        let threadpool = rayon::ThreadPoolBuilder::new()
+            .num_threads(std::thread::available_parallelism()?.into())
+            .thread_name(|f| format!("string-cache-{f}"))
+            .build()?;
+        threadpool.install(|| {
+            self.indexed_strings
+                .localized_strings
+                .par_iter()
+                .for_each(|s| {
+                    if let Ok(local) = LocalizedStrings::load(s.localized_tag)
+                        && let Some(stringbank) = local.strings(&Language::English)
+                    {
+                        stringbank.iter().for_each(|(hash, string)| {
+                            self.string_cache
+                                .insert((s.index as u32, *hash), string.to_string());
+                        });
+                    }
+                });
+        });
+        Ok(())
     }
 
     pub fn get_indexed_string(&self, index: u32, hash: u32) -> Option<String> {
-        if let Some(cached) = self.string_cache.read().get(&(index, hash)) {
+        if let Some(cached) = self.string_cache.get(&(index, hash)) {
             return Some(cached.to_owned());
         }
+
         let strings_data = self.indexed_strings.localized_strings.get(index as usize)?;
 
         let Ok(loc) = LocalizedStrings::load(strings_data.localized_tag) else {
             return None;
         };
         let string = loc.get(&self.language.read(), hash)?;
-        self.string_cache
-            .write()
-            .insert((index, hash), string.to_owned());
+        self.string_cache.insert((index, hash), string.to_owned());
         Some(string.to_owned())
     }
 }
@@ -217,7 +248,7 @@ impl ActivityManager {
                 if let InvestmentData::Activity(a) = act {
                     let act_name = a.display.display_properties.name.get();
                     if act_name
-                        .clone()
+                        .as_ref()
                         .is_some_and(|n| n.to_lowercase().contains(&name))
                         || act_name.is_none() && name.is_empty()
                     {
@@ -259,11 +290,11 @@ impl ItemManager {
             .par_iter()
             .try_for_each(move |item| -> anyhow::Result<()> {
                 if let InvestmentData::InventoryItem(i) = item {
-                    let act_name = i.display.name.get();
-                    if act_name
-                        .clone()
+                    let item_name = i.display.name.get();
+                    if item_name
+                        .as_ref()
                         .is_some_and(|n| n.to_lowercase().contains(&name))
-                        || act_name.is_none() && name.is_empty()
+                        || item_name.is_none() && name.is_empty()
                     {
                         channel.try_send(InvestmentData::InventoryItem(i.clone()))?;
                     }

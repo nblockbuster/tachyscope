@@ -146,12 +146,16 @@ impl LocalizedStrings {
     pub fn get(&self, lang: &Language, hash: u32) -> Option<&String> {
         if let Some(localized) = self.stringmap.get(lang) {
             localized.get(&hash)
-            // return Err(anyhow::anyhow!(
-            //     "Could not find language {:?} in stringmap",
-            //     lang
-            // ));
         } else {
             None
         }
+    }
+
+    pub fn strings(&self, lang: &Language) -> Option<FxHashMap<u32, String>> {
+        self.stringmap.get(lang).cloned()
+    }
+
+    pub fn stringmap(&self) -> &FxHashMap<Language, FxHashMap<u32, String>> {
+        &self.stringmap
     }
 }

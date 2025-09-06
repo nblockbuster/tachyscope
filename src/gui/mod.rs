@@ -121,7 +121,7 @@ impl TachyscopeApp {
     }
 }
 
-// TODO: Textures, Texture Cache, Items
+// TODO: checkbox grid to filter types
 impl eframe::App for TachyscopeApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {

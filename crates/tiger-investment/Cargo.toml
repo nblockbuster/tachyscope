@@ -18,3 +18,4 @@ tracing.workspace = true
 crossbeam.workspace = true
 rayon.workspace = true
 eframe.workspace = true
+dashmap = { version = "6.1.0", features = ["rayon"] }

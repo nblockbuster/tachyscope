@@ -30,7 +30,7 @@ pub mod manager;
 #[derive(Clone, strum::IntoStaticStr)]
 pub enum InvestmentData {
     Achievement,
-    Activity(Box<Activity>), //(Box<SActivityData>, Box<SActivityDisplayData>),
+    Activity(Box<Activity>),
     ActivityGraph(Box<SActivityGraph>),
     ActivityType(Box<SActivityType>),
     InventoryItem(Box<InventoryItem>),
@@ -70,7 +70,6 @@ pub struct IndexableHashMap<K, V> {
 }
 
 impl<K, V> IndexableHashMap<K, V> {
-    #[tracing::instrument(skip(self))]
     pub fn get(&self, index: usize) -> Option<&V> {
         if index < self.values.len() && index < self.values.len() {
             Some(&self.values[index])
@@ -79,17 +78,14 @@ impl<K, V> IndexableHashMap<K, V> {
         }
     }
 
-    #[tracing::instrument(skip(self))]
     pub fn keys(&self) -> Vec<&K> {
         self.hash_to_index.keys().collect()
     }
 
-    #[tracing::instrument(skip(self))]
     pub fn values(&self) -> &Vec<V> {
         &self.values
     }
 
-    #[tracing::instrument]
     pub fn new() -> Self {
         Self {
             hash_to_index: HashMap::new(),
@@ -99,13 +95,11 @@ impl<K, V> IndexableHashMap<K, V> {
 }
 
 impl<K: Eq + Hash, V> IndexableHashMap<K, V> {
-    #[tracing::instrument(skip_all)]
     pub fn lookup_hash(&self, hash: &K) -> Option<&V> {
         let index = self.hash_to_index.get(hash)?;
         self.values.get(*index)
     }
 
-    #[tracing::instrument(skip_all)]
     pub fn insert(&mut self, k: K, v: V) -> Option<&V> {
         self.values.push(v);
         self.hash_to_index.insert(k, self.values.len() - 1);
