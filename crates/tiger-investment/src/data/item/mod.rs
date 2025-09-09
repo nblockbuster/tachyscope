@@ -23,8 +23,7 @@ impl InventoryItem {
     pub fn icon(&self) -> Option<InvestmentIcon> {
         investment_manager()
             .icons()
-            .get(self.display.icon_index as usize)
-            .map(InvestmentIcon::new)
+            .get_index(self.display.icon_index as usize)
     }
 }
 

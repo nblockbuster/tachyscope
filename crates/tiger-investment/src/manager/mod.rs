@@ -7,7 +7,7 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxHashMap;
 use strum::IntoEnumIterator;
 use tiger_parse::{PackageManagerExt, TigerReadable};
-use tiger_pkg::package_manager;
+use tiger_pkg::{TagHash, package_manager};
 use tiger_text::{Language, LocalizedStrings};
 
 use crate::{
@@ -16,7 +16,7 @@ use crate::{
         activity::{
             Activity, SActivityData, SActivityDisplayData, SActivityDisplayList, SActivityList,
         },
-        image::{SInvestmentIcon, SInvestmentIcons},
+        image::{InvestmentIcon, SInvestmentIcons},
         item::{InventoryItem, SInventoryItem, SInventoryItemDisplayList, SItemList},
         text::SIndexedLocalizedStrings,
     },
@@ -45,70 +45,17 @@ pub struct ItemManager {
 
 pub struct IconManager {
     // TODO: IndexableHashMap? They have hashes, but don't know if used elsewhere, and not just by indexing
-    icon_cache: RwLock<FxHashMap<usize, SInvestmentIcon>>,
-    icon_tag: SInvestmentIcons,
+    icon_cache: DashMap<usize, InvestmentIcon>,
 }
 
 impl InvestmentManager {
     #[tracing::instrument]
     pub fn new() -> anyhow::Result<Self> {
-        let activity_display_list: SActivityDisplayList = package_manager().read_tag_struct(
-            package_manager().get_all_by_reference(SActivityDisplayList::ID.unwrap())[0].0,
-        )?;
-        let activities_data: SActivityList = package_manager().read_tag_struct(
-            package_manager().get_all_by_reference(SActivityList::ID.unwrap())[0].0,
-        )?;
-
-        let mut activities = IndexableHashMap::new();
-
-        if activity_display_list.activities.len() != activities_data.activities.len() {
-            return Err(anyhow::anyhow!("Activity table size does not match"));
-        }
-
-        for (i, a_data) in activities_data.activities.iter().enumerate() {
-            let a_disp = &activity_display_list.activities[i];
-            activities.insert(
-                a_data.hash,
-                InvestmentData::Activity(Box::new(Activity::new(
-                    a_data.activity.0.clone(),
-                    a_disp.activity.0.clone(),
-                ))),
-            );
-        }
-
-        let item_tag: SItemList = package_manager()
-            .read_tag_struct(package_manager().get_all_by_reference(SItemList::ID.unwrap())[0].0)?;
-
-        let item_display_tag: SInventoryItemDisplayList = package_manager().read_tag_struct(
-            package_manager().get_all_by_reference(SInventoryItemDisplayList::ID.unwrap())[0].0,
-        )?;
-
-        let mut item_map = IndexableHashMap::new();
-
-        for (i, data) in item_tag.items.iter().enumerate() {
-            let item_display = &item_display_tag.stringmap[i];
-            item_map.insert(
-                data.hash,
-                InvestmentData::InventoryItem(Box::new(InventoryItem::new(
-                    data.item.0.clone(),
-                    item_display.string_tag.0.clone(),
-                ))),
-            );
-        }
-
-        let icon_tag: SInvestmentIcons = package_manager().read_tag_struct(
-            package_manager().get_all_by_reference(SInvestmentIcons::ID.unwrap())[0].0,
-        )?;
-
         Ok(Self {
             strings: Arc::new(StringManager::new()?),
-            activities: Arc::new(ActivityManager { activities }),
-            items: Arc::new(ItemManager { items: item_map }),
-
-            icons: Arc::new(IconManager {
-                icon_tag,
-                icon_cache: RwLock::new(FxHashMap::default()),
-            }),
+            activities: Arc::new(ActivityManager::new()?),
+            items: Arc::new(ItemManager::new()?),
+            icons: Arc::new(IconManager::new()?),
         })
     }
 
@@ -204,7 +151,7 @@ impl StringManager {
                 .par_iter()
                 .for_each(|s| {
                     if let Ok(local) = LocalizedStrings::load(s.localized_tag)
-                        && let Some(stringbank) = local.strings(&Language::English)
+                        && let Some(stringbank) = local.strings(&self.lang())
                     {
                         stringbank.iter().for_each(|(hash, string)| {
                             self.string_cache
@@ -214,6 +161,17 @@ impl StringManager {
                 });
         });
         Ok(())
+    }
+
+    pub fn insert_string_container(&self, container: impl Into<TagHash>) {
+        if let Ok(local) = LocalizedStrings::load(container)
+            && let Some(stringbank) = local.strings(&self.lang())
+        {
+            stringbank.iter().for_each(|(hash, string)| {
+                self.string_cache
+                    .insert((u32::MAX, *hash), string.to_string());
+            });
+        }
     }
 
     pub fn get_indexed_string(&self, index: u32, hash: u32) -> Option<String> {
@@ -233,6 +191,33 @@ impl StringManager {
 }
 
 impl ActivityManager {
+    #[tracing::instrument]
+    pub fn new() -> anyhow::Result<Self> {
+        let activity_display_list: SActivityDisplayList = package_manager().read_tag_struct(
+            package_manager().get_all_by_reference(SActivityDisplayList::ID.unwrap())[0].0,
+        )?;
+        let activities_data: SActivityList = package_manager().read_tag_struct(
+            package_manager().get_all_by_reference(SActivityList::ID.unwrap())[0].0,
+        )?;
+
+        let mut activities = IndexableHashMap::new();
+
+        if activity_display_list.activities.len() != activities_data.activities.len() {
+            return Err(anyhow::anyhow!("Activity table size does not match"));
+        }
+
+        for (i, a_data) in activities_data.activities.iter().enumerate() {
+            let a_disp = &activity_display_list.activities[i];
+            activities.insert(
+                a_data.hash,
+                InvestmentData::Activity(Box::new(Activity::new(
+                    a_data.activity.0.clone(),
+                    a_disp.activity.0.clone(),
+                ))),
+            );
+        }
+        Ok(Self { activities })
+    }
     /// Returns a Vec containing the activities with `name` in their name.
     #[tracing::instrument(skip(self))]
     pub fn search_by_name(
@@ -277,6 +262,29 @@ impl ActivityManager {
 }
 
 impl ItemManager {
+    #[tracing::instrument]
+    pub fn new() -> anyhow::Result<Self> {
+        let item_tag: SItemList = package_manager()
+            .read_tag_struct(package_manager().get_all_by_reference(SItemList::ID.unwrap())[0].0)?;
+
+        let item_display_tag: SInventoryItemDisplayList = package_manager().read_tag_struct(
+            package_manager().get_all_by_reference(SInventoryItemDisplayList::ID.unwrap())[0].0,
+        )?;
+
+        let mut item_map = IndexableHashMap::new();
+
+        for (i, data) in item_tag.items.iter().enumerate() {
+            let item_display = &item_display_tag.stringmap[i];
+            item_map.insert(
+                data.hash,
+                InvestmentData::InventoryItem(Box::new(InventoryItem::new(
+                    data.item.0.clone(),
+                    item_display.string_tag.0.clone(),
+                ))),
+            );
+        }
+        Ok(Self { items: item_map })
+    }
     /// Returns a Vec containing the items with `name` in their name.
     #[tracing::instrument(skip(self))]
     pub fn search_by_name(
@@ -321,18 +329,22 @@ impl ItemManager {
 }
 
 impl IconManager {
-    pub fn get(&self, index: usize) -> Option<SInvestmentIcon> {
-        if let Some(icon_cached) = self.icon_cache.read().get(&index) {
+    #[tracing::instrument]
+    pub fn new() -> anyhow::Result<Self> {
+        let icon_cache = DashMap::new();
+        let icon_tag: SInvestmentIcons = package_manager().read_tag_struct(
+            package_manager().get_all_by_reference(SInvestmentIcons::ID.unwrap())[0].0,
+        )?;
+        for (i, icon) in icon_tag.icons.iter().enumerate() {
+            icon_cache.insert(i, InvestmentIcon::new(icon.icon)?);
+        }
+        Ok(Self { icon_cache })
+    }
+
+    pub fn get_index(&self, index: usize) -> Option<InvestmentIcon> {
+        if let Some(icon_cached) = self.icon_cache.get(&index) {
             return Some(icon_cached.clone());
         }
-        if let Some(icon) = self.icon_tag.icons.get(index).map(|x| {
-            package_manager()
-                .read_tag_struct::<SInvestmentIcon>(x.icon)
-                .unwrap()
-        }) {
-            self.icon_cache.write().insert(index, icon.clone());
-            return Some(icon);
-        };
         None
     }
 }

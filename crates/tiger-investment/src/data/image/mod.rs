@@ -1,6 +1,6 @@
 use glam::Vec4;
-use tiger_parse::{OptionalVariantPointer, Pointer, VariantPointer, tiger_tag};
-use tiger_pkg::TagHash;
+use tiger_parse::{OptionalVariantPointer, PackageManagerExt, Pointer, VariantPointer, tiger_tag};
+use tiger_pkg::{TagHash, package_manager};
 use tiger_tag::{OptionalTag, Tag, WideHash, WideTag};
 
 mod dxgi;
@@ -40,8 +40,10 @@ pub struct InvestmentIcon {
 }
 
 impl InvestmentIcon {
-    pub fn new(data: SInvestmentIcon) -> Self {
-        Self { data }
+    pub fn new(tag: impl Into<TagHash>) -> anyhow::Result<Self> {
+        Ok(Self {
+            data: package_manager().read_tag_struct::<SInvestmentIcon>(tag)?,
+        })
     }
 
     pub fn get_background_textures(&self, colorblind_mode: Option<ColorblindMode>) -> Vec<TagHash> {

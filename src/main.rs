@@ -5,14 +5,13 @@ use crate::gui::TachyscopeApp;
 use clap::Parser;
 use eframe::{
     egui_wgpu::{WgpuConfiguration, WgpuSetup, WgpuSetupCreateNew},
-    wgpu::{self, Backends, InstanceDescriptor, MemoryHints, PowerPreference},
+    wgpu::{Backends, InstanceDescriptor},
 };
 use env_logger::Env;
 use game_detector::InstalledGame;
 use log::info;
 use tiger_pkg::{DestinyVersion, GameVersion, PackageManager};
 use tracing_subscriber::layer::SubscriberExt;
-use wgpu::Features;
 
 mod gui;
 mod util;
