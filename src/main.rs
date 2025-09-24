@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::gui::TachyscopeApp;
 
@@ -25,14 +25,18 @@ pub struct Args {
 }
 
 fn main() -> eframe::Result<()> {
-    // Limit rayon threads to 4 as to not kill PCs when search is running
+    // Limit rayon threads to paralellism/4 as to not kill PCs when search is running
+    let threads = std::thread::available_parallelism()
+        .unwrap_or(NonZeroUsize::new(8).unwrap())
+        .get()
+        / 4;
     rayon::ThreadPoolBuilder::new()
-        .num_threads(4)
+        .num_threads(threads)
         .build_global()
         .unwrap();
 
     let rt = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(4)
+        .worker_threads(threads)
         .enable_all()
         .build()
         .unwrap();
